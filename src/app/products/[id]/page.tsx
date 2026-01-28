@@ -1,0 +1,141 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useSession, signIn, signOut } from "next-auth/react";
+
+interface Product {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  category: { name: string };
+}
+
+export default function ProductDetailsPage() {
+  const { data: session } = useSession();
+  const { id } = useParams();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchProduct() {
+      if (!id) return;
+      try {
+        const res = await fetch(`/api/products/${id}`);
+        if (!res.ok) {
+          throw new Error(`Error fetching product: ${res.statusText}`);
+        }
+        const data: Product = await res.json();
+        setProduct(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProduct();
+  }, [id]);
+
+  const handleAddToCart = async () => {
+    if (!session?.user) {
+      alert("Please sign in to add items to your cart.");
+      signIn(); // Redirect to login page
+      return;
+    }
+
+    if (!product) return;
+
+    try {
+      const res = await fetch('/api/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id, quantity: 1 }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error adding item to cart: ${res.statusText}`);
+      }
+
+      alert('Item added to cart!');
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to add item to cart.');
+    }
+  };
+
+  if (loading) return <div className="container mx-auto p-4 text-center">Loading...</div>;
+  if (error) return <div className="container mx-auto p-4 text-center text-red-500">Error: {error}</div>;
+  if (!product) return <div className="container mx-auto p-4 text-center">Product not found</div>;
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-white shadow-md p-4">
+        <div className="container mx-auto flex justify-between items-center">
+          <Link href="/">
+            <h1 className="text-3xl font-bold text-gray-800">General Store</h1>
+          </Link>
+          <nav>
+            <ul className="flex space-x-4">
+              <li><Link href="/" className="text-gray-600 hover:text-gray-900">Home</Link></li>
+              <li><Link href="/cart" className="text-gray-600 hover:text-gray-900">Cart</Link></li>
+              {session ? (
+                <>
+                  <li className="text-gray-600">Welcome, {session.user?.name || session.user?.email}!</li>
+                  <li>
+                    <button onClick={() => signOut()} className="text-red-600 hover:text-red-800">
+                      Sign Out
+                    </button>
+                  </li>
+                </>
+              ) : (
+                <li><button onClick={() => signIn()} className="text-green-600 hover:text-green-800">Sign In</button></li>
+              )}
+            </ul>
+          </nav>
+        </div>
+      </header>
+
+      <main className="container mx-auto p-4">
+        <div className="bg-white rounded-lg shadow-md p-6 md:flex md:items-center">
+          <div className="md:w-1/2 relative h-96 mb-6 md:mb-0">
+            <Image
+              src={product.imageUrl || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect fill="%23e0e0e0" width="400" height="300"/><text x="50%" y="50%" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="%23757575" text-anchor="middle" dominant-baseline="middle">No Image</text></svg>'}
+              alt={product.name}
+              layout="fill"
+              objectFit="contain"
+              className="rounded-lg"
+            />
+          </div>
+          <div className="md:w-1/2 md:pl-8">
+            <h2 className="text-4xl font-bold text-gray-800 mb-2">{product.name}</h2>
+            <p className="text-blue-600 text-lg mb-4">{product.category.name}</p>
+            <p className="text-gray-700 text-lg mb-6 leading-relaxed">{product.description}</p>
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-4xl font-bold text-gray-900">${product.price.toFixed(2)}</span>
+              <button
+                onClick={handleAddToCart}
+                className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg font-semibold hover:bg-blue-700 transition duration-300"
+              >
+                Add to Cart
+              </button>
+            </div>
+            <Link href="/" className="text-blue-600 hover:underline">
+              &larr; Back to Products
+            </Link>
+          </div>
+        </div>
+      </main>
+
+      <footer className="bg-gray-800 text-white p-4 mt-8">
+        <div className="container mx-auto text-center">
+          <p>&copy; 2026 General Store. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
