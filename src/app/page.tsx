@@ -131,13 +131,32 @@ export default function Home() {
       });
 
       if (!res.ok) {
-        throw new Error(`Error adding item to cart: ${res.statusText}`);
+        throw new Error('Failed to add item to cart via API');
       }
 
       alert('Item added to cart!');
     } catch (err: any) {
-      console.error(err);
-      alert('Failed to add item to cart.');
+      console.warn('Add to cart API failed, using fallback:', err);
+
+      // Fallback: Add to local storage cart
+      const storedCart = localStorage.getItem('cart');
+      let cart = storedCart ? JSON.parse(storedCart) : [];
+
+      const existingItemIndex = cart.findIndex((item: any) => item.productId === productId && item.userId === user.id);
+
+      if (existingItemIndex > -1) {
+        cart[existingItemIndex].quantity += 1;
+      } else {
+        cart.push({
+          id: Date.now(), // Fake ID
+          productId,
+          quantity: 1,
+          userId: user.id
+        });
+      }
+
+      localStorage.setItem('cart', JSON.stringify(cart));
+      alert('Offline Mode: Item added to cart locally!');
     }
   };
 
