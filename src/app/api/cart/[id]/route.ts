@@ -1,21 +1,20 @@
 import { PrismaClient } from '@prisma/client';
-import { NextResponse } from 'next/server';
-import { auth } from '../../../../auth'; // Adjust path as needed
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const session = await auth();
-
-  if (!session || !session.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
   const cartItemId = Number(id);
 
-  if (isNaN(cartItemId)) {
+  const { userId } = await request.json(); // Expect userId in the request body
+
+  if (!cartItemId || isNaN(cartItemId)) {
     return NextResponse.json({ error: 'Invalid cart item ID' }, { status: 400 });
+  }
+
+  if (!userId || isNaN(Number(userId))) {
+    return NextResponse.json({ error: 'User ID missing or invalid' }, { status: 400 });
   }
 
   try {
@@ -23,7 +22,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       where: { id: cartItemId },
     });
 
-    if (!cartItem || cartItem.userId !== Number(session.user.id)) {
+    if (!cartItem || cartItem.userId !== Number(userId)) {
       return NextResponse.json({ error: 'Cart item not found or unauthorized' }, { status: 404 });
     }
 

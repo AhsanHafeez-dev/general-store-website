@@ -7,46 +7,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  orders        Order[]
-  cartItems     CartItem[]
-  accounts      Account[]
-  sessions      Session[]
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+  cartItems CartItem[]
 }
 
 model Category {
@@ -73,7 +42,7 @@ model CartItem {
   id        Int      @id @default(autoincrement())
   productId Int
   product   Product  @relation(fields: [productId], references: [id])
-  userId    String // Changed to String to match User.id
+  userId    Int
   user      User     @relation(fields: [userId], references: [id])
   quantity  Int
   createdAt DateTime @default(now())
@@ -84,10 +53,12 @@ model CartItem {
 
 model Order {
   id          Int        @id @default(autoincrement())
-  userId      String // Changed to String to match User.id
+  userId      Int
   user        User       @relation(fields: [userId], references: [id])
   orderDate   DateTime   @default(now())
   totalAmount Float
+  stripeSessionId String?
+  status      String     @default("pending")
   orderItems  OrderItem[]
 }
 
@@ -99,12 +70,4 @@ model OrderItem {
   product   Product  @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
 }

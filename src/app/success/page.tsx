@@ -3,70 +3,79 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
-import { PrismaClient } from '@prisma/client'; // This will cause an error on client side, needs to be handled via API route
-
-interface CartItem {
-  id: number;
-  productId: number;
-  quantity: number;
-  product: {
-    name: string;
-    price: number;
-  };
-}
 
 export default function SuccessPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const sessionId = searchParams.get('session_id');
-  const { data: session, status } = useSession();
-  const [message, setMessage] = useState('Processing your order...');
-  const [isError, setIsError] = useState(false);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const sessionId = searchParams.get('session_id');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function handleSuccess() {
-      if (!sessionId || status !== 'authenticated') return;
-
-      try {
-        const res = await fetch('/api/confirm-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, userId: session.user.id }),
-        });
-
-        const data = await res.json();
-
-        if (res.ok) {
-          setMessage(data.message || 'Payment successful! Your order has been placed.');
-        } else {
-          setIsError(true);
-          setMessage(data.error || 'Failed to confirm your order. Please contact support.');
+    useEffect(() => {
+        if (!sessionId) {
+            setLoading(false);
+            return;
         }
-      } catch (err: any) {
-        setIsError(true);
-        setMessage(`An error occurred: ${err.message}`);
-      }
+
+        const confirmOrder = async () => {
+            try {
+                const userStr = localStorage.getItem('user');
+                if (!userStr) throw new Error('User not found');
+                const user = JSON.parse(userStr);
+
+                const res = await fetch('/api/orders/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId, userId: user.id }),
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                // Redirect to orders page after a short delay
+                setTimeout(() => {
+                    router.push('/orders');
+                }, 2000);
+
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        confirmOrder();
+    }, [sessionId, router]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <p className="text-xl">Processing your order...</p>
+            </div>
+        );
     }
 
-    if (status === 'authenticated') {
-      handleSuccess();
+    if (error) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-red-50">
+                <div className="text-center">
+                    <h1 className="text-2xl text-red-600 mb-2">Something went wrong</h1>
+                    <p className="text-gray-700">{error}</p>
+                    <Link href="/cart" className="text-blue-600 underline mt-4 block">Return to Cart</Link>
+                </div>
+            </div>
+        );
     }
-  }, [sessionId, session, status]);
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md text-center">
-        {isError ? (
-          <h2 className="text-3xl font-bold text-red-600 mb-4">Order Failed</h2>
-        ) : (
-          <h2 className="text-3xl font-bold text-green-600 mb-4">Order Success!</h2>
-        )}
-        <p className="text-gray-700 text-lg mb-6">{message}</p>
-        <Link href="/" className="bg-blue-600 text-white px-6 py-3 rounded-md text-lg font-semibold hover:bg-blue-700 transition duration-300">
-          Continue Shopping
-        </Link>
-      </div>
-    </div>
-  );
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-green-50">
+            <div className="bg-white p-8 rounded-lg shadow-md text-center">
+                <h1 className="text-4xl font-bold text-green-600 mb-4">Payment Successful!</h1>
+                <p className="text-lg text-gray-700 mb-6">Thank you for your purchase. Redirecting to your orders...</p>
+                <Link href="/orders" className="bg-green-600 text-white px-6 py-3 rounded-md font-semibold hover:bg-green-700 transition duration-300">
+                    View Orders
+                </Link>
+            </div>
+        </div>
+    );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useRouter } from 'next/navigation';
 
 interface Product {
   id: number;
@@ -20,15 +20,28 @@ interface Category {
   name: string;
 }
 
+interface UserSession {
+  id: number;
+  email: string;
+  name?: string;
+}
+
 export default function Home() {
-  const { data: session } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<UserSession | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
+    // Check for user in local storage on component mount
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+
     async function fetchData() {
       try {
         // Fetch products
@@ -58,9 +71,9 @@ export default function Home() {
   }, []);
 
   const handleAddToCart = async (productId: number) => {
-    if (!session?.user) {
-      alert("Please sign in to add items to your cart.");
-      signIn(); // Redirect to login page
+    if (!user) {
+      alert("Please log in to add items to your cart.");
+      router.push('/login');
       return;
     }
 
@@ -68,7 +81,7 @@ export default function Home() {
       const res = await fetch('/api/cart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId, quantity: 1 }),
+        body: JSON.stringify({ productId, quantity: 1, userId: user.id }),
       });
 
       if (!res.ok) {
@@ -80,6 +93,12 @@ export default function Home() {
       console.error(err);
       alert('Failed to add item to cart.');
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    router.push('/login');
   };
 
   const filteredProducts = selectedCategory
@@ -98,19 +117,20 @@ export default function Home() {
           </Link>
           <nav>
             <ul className="flex space-x-4">
-              <li><Link href="#" className="text-gray-600 hover:text-gray-900">Home</Link></li>
+              <li><Link href="/" className="text-gray-600 hover:text-gray-900">Home</Link></li>
               <li><Link href="/cart" className="text-gray-600 hover:text-gray-900">Cart</Link></li>
-              {session ? (
+              <li><Link href="/orders" className="text-gray-600 hover:text-gray-900">Orders</Link></li>
+              {user ? (
                 <>
-                  <li className="text-gray-600">Welcome, {session.user?.name || session.user?.email}!</li>
+                  <li className="text-gray-600">Welcome, {user.name || user.email}!</li>
                   <li>
-                    <button onClick={() => signOut()} className="text-red-600 hover:text-red-800">
+                    <button onClick={handleLogout} className="text-red-600 hover:text-red-800">
                       Sign Out
                     </button>
                   </li>
                 </>
               ) : (
-                <li><button onClick={() => signIn()} className="text-green-600 hover:text-green-800">Sign In</button></li>
+                <li><Link href="/login" className="text-green-600 hover:text-green-800">Sign In</Link></li>
               )}
             </ul>
           </nav>
@@ -124,7 +144,7 @@ export default function Home() {
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Categories</h2>
             <ul>
               <li
-                className={`cursor-pointer py-2 px-3 rounded-md mb-2 ${selectedCategory === null ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                className={`cursor-pointer py-2 px-3 rounded-md mb-2 ${selectedCategory === null ? 'bg-blue-500 text-white' : 'text-black hover:bg-gray-200'}`}
                 onClick={() => setSelectedCategory(null)}
               >
                 All Products
@@ -132,7 +152,7 @@ export default function Home() {
               {categories.map((category) => (
                 <li
                   key={category.id}
-                  className={`cursor-pointer py-2 px-3 rounded-md mb-2 ${selectedCategory === category.id ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                  className={`cursor-pointer py-2 px-3 rounded-md mb-2 ${selectedCategory === category.id ? 'bg-blue-500 text-white' : 'text-black hover:bg-gray-200'}`}
                   onClick={() => setSelectedCategory(category.id)}
                 >
                   {category.name}
@@ -148,7 +168,7 @@ export default function Home() {
               {filteredProducts.map((product) => (
                 <Link href={`/products/${product.id}`} key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden transform transition duration-300 hover:scale-105 cursor-pointer">
                   <div className="relative w-full h-48">
-                    <Image src={product.imageUrl || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect fill="%23e0e0e0" width="400" height="300"/><text x="50%" y="50%" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="%23757575" text-anchor="middle" dominant-baseline="middle">No Image</text></svg>'} alt={product.name} layout="fill" objectFit="cover" />
+                    <Image src={product.imageUrl || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect fill="%23e0e0e0" width="400" height="300"/><text x="50%" y="50%" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="%23757575" text-anchor="middle" dominant-baseline="middle">No Image</text></svg>'} alt={product.name} fill />
                   </div>
                   <div className="p-4">
                     <h3 className="text-xl font-semibold text-gray-800 mb-1">{product.name}</h3>

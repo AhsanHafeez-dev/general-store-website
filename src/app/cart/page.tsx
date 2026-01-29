@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSession, signIn, signOut } from "next-auth/react";
-import { loadStripe } from '@stripe/stripe-js';
+import { useRouter } from 'next/navigation';
 
 interface CartItem {
   id: number;
@@ -17,42 +16,59 @@ interface CartItem {
   };
 }
 
-// Make sure to call loadStripe outside of a component’s render to avoid
-// recreating the Stripe object on every render.
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
+interface UserSession {
+  id: number;
+  email: string;
+  name?: string;
+}
 
 export default function CartPage() {
-  const { data: session } = useSession();
+  const router = useRouter();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchCartItems = async () => {
-    if (!session?.user) return;
-    try {
-      const res = await fetch('/api/cart');
-      if (!res.ok) {
-        throw new Error(`Error fetching cart items: ${res.statusText}`);
-      }
-      const data: CartItem[] = await res.json();
-      setCartItems(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [user, setUser] = useState<UserSession | null>(null);
 
   useEffect(() => {
-    fetchCartItems();
-  }, [session]);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    } else {
+      // Redirect to login if no user is found
+      router.push('/login');
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchCartItems = async () => {
+      if (!user) return;
+      try {
+        const res = await fetch(`/api/cart?userId=${user.id}`);
+        if (!res.ok) {
+          throw new Error(`Error fetching cart items: ${res.statusText}`);
+        }
+        const data: CartItem[] = await res.json();
+        setCartItems(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchCartItems();
+    }
+  }, [user]);
 
   const handleRemoveFromCart = async (cartItemId: number) => {
-    if (!session?.user) return;
+    if (!user) return;
 
     try {
       const res = await fetch(`/api/cart/${cartItemId}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
       });
 
       if (!res.ok) {
@@ -60,7 +76,8 @@ export default function CartPage() {
       }
 
       alert('Item removed from cart!');
-      fetchCartItems(); // Re-fetch cart items to update the UI
+      // Instead of re-fetching all cart items, update state directly for better UX
+      setCartItems(currentItems => currentItems.filter(item => item.id !== cartItemId));
     } catch (err: any) {
       console.error(err);
       alert('Failed to remove item from cart.');
@@ -68,9 +85,9 @@ export default function CartPage() {
   };
 
   const handleCheckout = async () => {
-    if (!session?.user) {
-      alert("Please sign in to proceed to checkout.");
-      signIn();
+    if (!user) {
+      alert("Please log in to proceed to checkout.");
+      router.push('/login');
       return;
     }
 
@@ -80,25 +97,20 @@ export default function CartPage() {
     }
 
     try {
-      const stripe = await stripePromise;
-      if (!stripe) {
-        throw new Error("Stripe.js failed to load.");
-      }
-
-      const res = await fetch('/api/checkout', {
+      const res = await fetch('/api/checkout_sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cartItems }),
+        body: JSON.stringify({ userId: user.id, cartItems }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to create checkout session.');
+      const data = await res.json();
+
+      if (res.ok) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Failed to create checkout session.');
       }
-
-      const { url } = await res.json();
-      window.location.href = url; // Redirect to Stripe Checkout
-
     } catch (err: any) {
       console.error(err);
       alert(`Checkout failed: ${err.message}`);
@@ -107,9 +119,8 @@ export default function CartPage() {
 
   const totalAmount = cartItems.reduce((sum, item) => sum + item.quantity * item.product.price, 0);
 
-  if (loading) return <div className="container mx-auto p-4 text-center">Loading...</div>;
+  if (loading || !user) return <div className="container mx-auto p-4 text-center">Loading...</div>;
   if (error) return <div className="container mx-auto p-4 text-center text-red-500">Error: {error}</div>;
-  if (!session?.user) return <div className="container mx-auto p-4 text-center">Please sign in to view your cart.</div>;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -122,17 +133,21 @@ export default function CartPage() {
             <ul className="flex space-x-4">
               <li><Link href="/" className="text-gray-600 hover:text-gray-900">Home</Link></li>
               <li><Link href="/cart" className="text-gray-600 hover:text-gray-900">Cart</Link></li>
-              {session ? (
+              <li><Link href="/orders" className="text-gray-600 hover:text-gray-900">Orders</Link></li>
+              {user ? (
                 <>
-                  <li className="text-gray-600">Welcome, {session.user?.name || session.user?.email}!</li>
+                  <li className="text-gray-600">Welcome, {user.name || user.email}!</li>
                   <li>
-                    <button onClick={() => signOut()} className="text-red-600 hover:text-red-800">
+                    <button onClick={() => {
+                      localStorage.removeItem('user');
+                      router.push('/login');
+                    }} className="text-red-600 hover:text-red-800">
                       Sign Out
                     </button>
                   </li>
                 </>
               ) : (
-                <li><button onClick={() => signIn()} className="text-green-600 hover:text-green-800">Sign In</button></li>
+                <li><Link href="/login" className="text-green-600 hover:text-green-800">Sign In</Link></li>
               )}
             </ul>
           </nav>

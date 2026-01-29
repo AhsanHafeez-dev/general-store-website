@@ -1,19 +1,19 @@
 import { PrismaClient } from '@prisma/client';
-import { NextResponse } from 'next/server';
-import { auth } from '../../../../auth'; // Adjust path as needed
+import { NextRequest, NextResponse } from 'next/server';
 
 const prisma = new PrismaClient();
 
-export async function GET() {
-  const session = await auth();
+export async function GET(request: NextRequest) {
+  const url = new URL(request.url);
+  const userId = url.searchParams.get('userId');
 
-  if (!session || !session.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!userId) {
+    return NextResponse.json({ error: 'User ID missing' }, { status: 400 });
   }
 
   try {
     const cartItems = await prisma.cartItem.findMany({
-      where: { userId: Number(session.user.id) },
+      where: { userId: Number(userId) },
       include: { product: true },
     });
     return NextResponse.json(cartItems);
@@ -24,23 +24,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
+  const { productId, quantity, userId } = await request.json();
 
-  if (!session || !session.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { productId, quantity } = await request.json();
-
-  if (!productId || !quantity || quantity <= 0) {
-    return NextResponse.json({ error: 'Invalid product ID or quantity' }, { status: 400 });
+  if (!productId || !quantity || quantity <= 0 || !userId) {
+    return NextResponse.json({ error: 'Invalid product ID, quantity, or user ID' }, { status: 400 });
   }
 
   try {
     const existingCartItem = await prisma.cartItem.findUnique({
       where: {
         userId_productId: {
-          userId: Number(session.user.id),
+          userId: Number(userId),
           productId: productId,
         },
       },
@@ -57,7 +51,7 @@ export async function POST(request: Request) {
       // Create new cart item
       cartItem = await prisma.cartItem.create({
         data: {
-          userId: Number(session.user.id),
+          userId: Number(userId),
           productId: productId,
           quantity: quantity,
         },
