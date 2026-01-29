@@ -5,29 +5,13 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: { name: string };
-}
+import { FALLBACK_PRODUCTS, Product } from '@/lib/fallbackData';
 
 interface UserSession {
   id: number;
   email: string;
   name?: string;
 }
-
-const FALLBACK_PRODUCT: Product = {
-  id: 0,
-  name: 'Fallback Product',
-  description: 'This is a fallback product because the server is unreachable.',
-  price: 0.00,
-  imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-  category: { name: 'Uncategorized' }
-};
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
@@ -55,11 +39,26 @@ export default function ProductDetailsPage() {
         setProduct(data);
       } catch (err: any) {
         console.warn('Using fallback product data');
-        // In a real app, you might check if the ID matches a known fallback ID
-        // For now, just show the generic fallback
-        setProduct(FALLBACK_PRODUCT);
-        // We suppress the error state so the fallback is shown instead of an error message
-        setError(null);
+
+        // Find product in fallback list
+        const fallbackProduct = FALLBACK_PRODUCTS.find(p => p.id === Number(id));
+
+        if (fallbackProduct) {
+          setProduct(fallbackProduct);
+          setError(null);
+        } else {
+          // Generic fallback if not found in list (or id is not a number)
+          setProduct({
+            id: 0,
+            name: 'Fallback Product',
+            description: 'This is a fallback product because the server is unreachable.',
+            price: 0.00,
+            imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+            category: { name: 'Uncategorized' },
+            categoryId: 0
+          });
+          setError(null);
+        }
       } finally {
         setLoading(false);
       }

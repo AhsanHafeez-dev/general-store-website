@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
+import { FALLBACK_PRODUCTS } from '@/lib/fallbackData';
+
 interface CartItem {
   id: number;
   productId: number;
@@ -21,27 +23,6 @@ interface UserSession {
   email: string;
   name?: string;
 }
-
-const FALLBACK_PRODUCTS = [
-  {
-    id: 1,
-    name: 'Laptop Pro',
-    price: 1299.99,
-    imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-  },
-  {
-    id: 2,
-    name: 'Canvas Sneakers',
-    price: 49.99,
-    imageUrl: 'https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-  },
-  {
-    id: 3,
-    name: 'Classic Novel',
-    price: 14.99,
-    imageUrl: 'https://images.pexels.com/photos/46274/pexels-photo-46274.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-  }
-];
 
 export default function CartPage() {
   const router = useRouter();

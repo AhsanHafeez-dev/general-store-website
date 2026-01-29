@@ -5,62 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
-interface Product {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: { name: string };
-  categoryId: number; // Add categoryId to the Product interface
-}
-
-interface Category {
-  id: number;
-  name: string;
-}
+import { FALLBACK_CATEGORIES, FALLBACK_PRODUCTS, Category, Product } from '@/lib/fallbackData';
 
 interface UserSession {
   id: number;
   email: string;
   name?: string;
 }
-
-const FALLBACK_CATEGORIES: Category[] = [
-  { id: 1, name: 'Electronics' },
-  { id: 2, name: 'Books' },
-  { id: 3, name: 'Clothing' },
-];
-
-const FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: 1,
-    name: 'Laptop Pro',
-    description: 'High performance laptop for professionals',
-    price: 1299.99,
-    imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-    category: { name: 'Electronics' },
-    categoryId: 1
-  },
-  {
-    id: 2,
-    name: 'Canvas Sneakers',
-    description: 'Comfortable everyday sneakers',
-    price: 49.99,
-    imageUrl: 'https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-    category: { name: 'Clothing' },
-    categoryId: 3
-  },
-  {
-    id: 3,
-    name: 'Classic Novel',
-    description: 'A timeless classic',
-    price: 14.99,
-    imageUrl: 'https://images.pexels.com/photos/46274/pexels-photo-46274.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
-    category: { name: 'Books' },
-    categoryId: 2
-  }
-];
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
