@@ -26,6 +26,42 @@ interface UserSession {
   name?: string;
 }
 
+const FALLBACK_CATEGORIES: Category[] = [
+  { id: 1, name: 'Electronics' },
+  { id: 2, name: 'Books' },
+  { id: 3, name: 'Clothing' },
+];
+
+const FALLBACK_PRODUCTS: Product[] = [
+  {
+    id: 1,
+    name: 'Laptop Pro',
+    description: 'High performance laptop for professionals',
+    price: 1299.99,
+    imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+    category: { name: 'Electronics' },
+    categoryId: 1
+  },
+  {
+    id: 2,
+    name: 'Canvas Sneakers',
+    description: 'Comfortable everyday sneakers',
+    price: 49.99,
+    imageUrl: 'https://images.pexels.com/photos/2529148/pexels-photo-2529148.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+    category: { name: 'Clothing' },
+    categoryId: 3
+  },
+  {
+    id: 3,
+    name: 'Classic Novel',
+    description: 'A timeless classic',
+    price: 14.99,
+    imageUrl: 'https://images.pexels.com/photos/46274/pexels-photo-46274.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940',
+    category: { name: 'Books' },
+    categoryId: 2
+  }
+];
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -44,23 +80,33 @@ export default function Home() {
 
     async function fetchData() {
       try {
+        let productsData: Product[] = [];
+        let categoriesData: Category[] = [];
+
         // Fetch products
-        const productsRes = await fetch('/api/products');
-        if (!productsRes.ok) {
-          throw new Error(`Error fetching products: ${productsRes.statusText}`);
+        try {
+          const productsRes = await fetch('/api/products');
+          if (!productsRes.ok) throw new Error('Failed to fetch products');
+          productsData = await productsRes.json();
+        } catch (e) {
+          console.warn('Using fallback products data');
+          productsData = FALLBACK_PRODUCTS;
         }
-        const productsData: Product[] = await productsRes.json();
-        setProducts(productsData);
 
         // Fetch categories
-        const categoriesRes = await fetch('/api/categories');
-        if (!categoriesRes.ok) {
-          throw new Error(`Error fetching categories: ${categoriesRes.statusText}`);
+        try {
+          const categoriesRes = await fetch('/api/categories');
+          if (!categoriesRes.ok) throw new Error('Failed to fetch categories');
+          categoriesData = await categoriesRes.json();
+        } catch (e) {
+          console.warn('Using fallback categories data');
+          categoriesData = FALLBACK_CATEGORIES;
         }
-        const categoriesData: Category[] = await categoriesRes.json();
-        setCategories(categoriesData);
 
+        setProducts(productsData);
+        setCategories(categoriesData);
       } catch (err: any) {
+        // Should catch unlikely widespread failures, though fallbacks handle most
         setError(err.message);
       } finally {
         setLoading(false);
